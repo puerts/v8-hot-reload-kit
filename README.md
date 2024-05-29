@@ -8,7 +8,11 @@
 npm install v8-hot-reload-kit
 ```
 
-## nodejs案例
+## watch命令
+
+功能：监听本地一个目录，如果目录下的.js, .mjs文件发生变化，远程刷新v8环境代码
+
+### nodejs案例
 
 * 运行nodejs测试脚本，打开在9222端口打开inspect功能
 
@@ -29,7 +33,7 @@ npx v8-hot-reload-kit watch test/node-test
   - `node --watch`会重启脚本，一些upvalue会重置，v8-hot-reload-kit
   - 以`test/node-test/test.js`为例，用`node --watch test/node-test/test.js`运行，修改test.js，计数器i变量会重置，用v8-hot-reload-kit则不重置
 
-## chrome案例
+### chrome案例
 
 * 找到你系统chrome的可执行程序目录，打开命令行/终端执行如下命令：
 
@@ -58,7 +62,7 @@ npx v8-hot-reload-kit watch test/browser-test -p 9223
 
 * 修改`test/browser-test/test.js`，观察chrome页面的修改效果
 
-## puerts编辑器案例
+### puerts编辑器案例
 
 * puerts的实例启动时指定远程调试端口，假设端口为8080
   - unreal engine下在FJsEnv的构造函数中指定
@@ -72,7 +76,7 @@ npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080
 
 * 修改ts代码，手动或者watch自动编译后看编辑器效果
 
-## puerts真机案例
+### puerts真机案例
 
 * 注意！puerts出于安全考虑，真机默认不开启远程调试功能，需要手动开启
   - unreal engine下在JsEnv.build.cs文件在ThirdParty函数中加入`PrivateDefinitions.Add("WITH_INSPECTOR");`
