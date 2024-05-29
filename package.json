@@ -6,6 +6,10 @@
   "description": "hot-reload toolkit for v8 environment",
   "keywords": [ "hot-reload", "live-edit", "v8", "nodejs", "puerts" ],
   "bin": "./bin/hot_reload.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/puerts/v8-hot-reload-kit.git"
+  },
   "dependencies": {
     "chokidar": "^3.6.0",
     "chrome-remote-interface": "^0.31.3",
