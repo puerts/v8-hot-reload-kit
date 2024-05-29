@@ -2,6 +2,12 @@
 
 各种v8环境（nodejs，chrome，puerts等等）代码运行时热刷新。
 
+## 安装
+
+```bash
+npm install v8-hot-reload-kit
+```
+
 ## nodejs案例
 
 * 运行nodejs测试脚本，打开在9222端口打开inspect功能
@@ -13,11 +19,15 @@ node --inspect=9222 test/node-test/test.js
 * 用v8-hot-reload-kit的watch命令监听`test/node-test/`目录
 
 ```bash
-npm install v8-hot-reload-kit
 npx v8-hot-reload-kit watch test/node-test
 ```
 
 * 接着你可以修改`test/node-test/`下的js文件看测试脚本的屏幕输出
+
+* v8-hot-reload-kit对比`node --watch`
+
+  - `node --watch`会重启脚本，一些upvalue会重置，v8-hot-reload-kit
+  - 以`test/node-test/test.js`为例，用`node --watch test/node-test/test.js`运行，修改test.js，计数器i变量会重置，用v8-hot-reload-kit则不重置
 
 ## chrome案例
 
@@ -43,7 +53,6 @@ npx http-server test/browser-test -p 8081
 * 用v8-hot-reload-kit的watch命令监听`test/browser-test/`目录，并指明远程端口为9223
 
 ```bash
-npm install v8-hot-reload-kit
 npx v8-hot-reload-kit watch test/browser-test -p 9223
 ```
 
@@ -58,7 +67,6 @@ npx v8-hot-reload-kit watch test/browser-test -p 9223
 * 用v8-hot-reload-kit的watch命令监听js加载目录的根目录，`path/to/your/puerts/js/root`目录，并指明远程端口为8080
 
 ```bash
-npm install v8-hot-reload-kit
 npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080
 ```
 
@@ -73,7 +81,6 @@ npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080
 * 用v8-hot-reload-kit的watch命令监听js加载目录的根目录，`/path/to/your/local/js/root`目录，并指明远程端口为8080，指明远程js根目录`/path/to/your/remote/js/root`
 
 ```bash
-npm install v8-hot-reload-kit
 npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080 -r /path/to/your/remote/js/root
 ```
 
