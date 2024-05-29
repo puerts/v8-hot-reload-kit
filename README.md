@@ -121,4 +121,4 @@ watch是监听一个目录，文件只要有更新就刷新到远端。而update
 node bin\hot_reload.js update test/node-test a.js
 ```
 * 参数1是localRoot目录，如果是浏览器或者设置了remoteRoot参数，用于本地和远程url的映射
-* 参数2是要更新的问题就，输入的是相对localRoot的路径
+* 参数2是要更新的文件，输入的是相对localRoot的路径
