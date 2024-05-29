@@ -74,6 +74,10 @@ npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080
 
 ## puerts真机案例
 
+* 注意！puerts出于安全考虑，真机默认不开启远程调试功能，需要手动开启
+  - unreal engine下在JsEnv.build.cs文件在ThirdParty函数中加入`PrivateDefinitions.Add("WITH_INSPECTOR");`
+  - unity在`puerts/unity/native_src/CMakeLists.txt`加入`list(APPEND PUERTS_COMPILE_DEFINITIONS WITH_INSPECTOR)`，并重新构建Plugins
+
 * puerts的实例启动时指定远程调试端口，假设端口为8080
   - unreal engine下在FJsEnv的构造函数中指定
   - unity下在Puerts.JsEnv构造函数中指定
