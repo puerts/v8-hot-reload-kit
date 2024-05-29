@@ -16,6 +16,7 @@ const MAX_SCRIPTS_CACHE_SIZE = 10000000;
 class ScriptSourcesMgr {
     constructor(params) {
         this._scriptsDB = new Map();
+        this._connecting = false;
         this._onScriptParsed = (params) => {
             this.setScriptInfo(params.scriptId, params.url);
         };
@@ -25,6 +26,7 @@ class ScriptSourcesMgr {
         this._onDisconnect = () => {
             this._trace('>>> disconnected!');
             this._client = undefined;
+            this.retryConnect(1);
         };
         let { trace, localRoot, remoteRoot } = params !== null && params !== void 0 ? params : {};
         this._trace = trace ? console.log : () => { };
@@ -34,10 +36,16 @@ class ScriptSourcesMgr {
     connect(host, port) {
         var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
+            this._host = host;
+            this._port = port;
             if (this._client) {
                 throw new Error("connected or connecting");
             }
-            this._trace(`connting ${host}:${port} ...`);
+            if (this._connecting) {
+                console.warn(`${host}:${port} is connecting, skipped`);
+            }
+            console.log(`connecting ${host}:${port} ...`);
+            this._connecting = true;
             try {
                 const local = true;
                 const cfg = { host, port, local };
@@ -68,19 +76,26 @@ class ScriptSourcesMgr {
                 }
                 client.on("disconnect", this._onDisconnect);
                 this._client = client;
-                this._trace(`${host}:${port} connented.`);
+                console.log(`${host}:${port} connented.`);
             }
             catch (err) {
                 console.error(`CONNECT_FAIL: ${err}`);
+                this._client = undefined;
+                this.retryConnect(2);
                 yield this.close();
             }
+            this._connecting = false;
         });
+    }
+    retryConnect(delay) {
+        console.log(`retry connect after ${delay} seconds`);
+        setTimeout(() => this.connect(this._host, this._port), delay * 1000);
     }
     reload(pathname, source) {
         return __awaiter(this, void 0, void 0, function* () {
             const pathNormalized = path.normalize(pathname);
             if (!this._client) {
-                console.warn(`not ready for ${pathNormalized}, retry later!`);
+                console.warn(`remote not connected, not ready for ${pathNormalized}, retry later!`);
             }
             if (this._scriptsDB.has(pathNormalized)) {
                 const scriptId = this._scriptsDB.get(pathNormalized);

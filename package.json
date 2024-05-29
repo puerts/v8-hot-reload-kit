@@ -1,6 +1,6 @@
 {
   "name": "v8-hot-reload-kit",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "license": "MIT License",
   "author": "chexiongsheng <chexiongsheng@gmail.com>",
   "description": "hot-reload toolkit for v8 environment",

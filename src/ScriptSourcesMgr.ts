@@ -11,6 +11,9 @@ export class ScriptSourcesMgr {
     private _puerts: boolean;
     private _localRoot:string;
     private _remoteRoot:string;
+    private _connecting:boolean = false;
+    private _host:string;
+    private _port:number;
 
     constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string }>) {
         let { trace, localRoot, remoteRoot } = params ?? {};
@@ -20,10 +23,16 @@ export class ScriptSourcesMgr {
     }
 
     public async connect(host: string, port?: number) {
+        this._host = host;
+        this._port = port;
         if (this._client) {
             throw new Error("connected or connecting");
         }
-        this._trace(`connting ${host}:${port} ...`);
+        if (this._connecting) {
+            console.warn(`${host}:${port} is connecting, skipped`);
+        }
+        console.log(`connecting ${host}:${port} ...`);
+        this._connecting = true;
         try {
             const local = true;
             const cfg = { host, port, local };
@@ -60,17 +69,25 @@ export class ScriptSourcesMgr {
             client.on("disconnect", this._onDisconnect);
 
             this._client = client;
-            this._trace(`${host}:${port} connented.`);
+            console.log(`${host}:${port} connented.`);
         } catch (err) {
             console.error(`CONNECT_FAIL: ${err}`);
+            this._client = undefined;
+            this.retryConnect(2);
             await this.close();
         }
+        this._connecting = false;
+    }
+
+    private retryConnect(delay:number) {
+        console.log(`retry connect after ${delay} seconds`);
+        setTimeout(()=>this.connect(this._host, this._port), delay * 1000);
     }
 
     public async reload(pathname: string, source: string): Promise<void> {
         const pathNormalized =  path.normalize(pathname);
         if (!this._client) {
-            console.warn(`not ready for ${pathNormalized}, retry later!`);
+            console.warn(`remote not connected, not ready for ${pathNormalized}, retry later!`);
         }
         if (this._scriptsDB.has(pathNormalized)) {
             const scriptId = this._scriptsDB.get(pathNormalized);
@@ -141,6 +158,7 @@ export class ScriptSourcesMgr {
     private _onDisconnect = () => {
         this._trace('>>> disconnected!');
         this._client = undefined;
+        this.retryConnect(1);
     }
 
     public async close() {

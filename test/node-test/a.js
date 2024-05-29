@@ -1,1 +1,1 @@
-exports.getStr = (s) => `hell, ${s}`;
+exports.getStr = (s) => `hello, ${s}`;
