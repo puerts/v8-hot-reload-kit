@@ -111,3 +111,14 @@ npx v8-hot-reload-kit watch path/to/your/puerts/js/root -p 8080 -v
 观察这些日志我们可以总结出远程js根目录为`/js/Gamescripts`
 
 * 修改ts代码，手动或者watch自动编译后看编辑器效果
+
+## update命令
+
+watch是监听一个目录，文件只要有更新就刷新到远端。而update只更新一个文件。
+
+示例：
+```bash
+node bin\hot_reload.js update test/node-test a.js
+```
+* 参数1是localRoot目录，如果是浏览器或者设置了remoteRoot参数，用于本地和远程url的映射
+* 参数2是要更新的问题就，输入的是相对localRoot的路径

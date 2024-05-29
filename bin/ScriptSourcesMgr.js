@@ -77,6 +77,14 @@ class ScriptSourcesMgr {
                 client.on("disconnect", this._onDisconnect);
                 this._client = client;
                 console.log(`${host}:${port} connented.`);
+                if (this._updateTask) {
+                    try {
+                        yield this.reload(this._updateTask.pathname, this._updateTask.content);
+                    }
+                    catch (_c) { }
+                    ;
+                    this.close();
+                }
             }
             catch (err) {
                 console.error(`CONNECT_FAIL: ${err}`);
@@ -86,6 +94,9 @@ class ScriptSourcesMgr {
             }
             this._connecting = false;
         });
+    }
+    setUpdateTask(pathname, content) {
+        this._updateTask = { pathname, content };
     }
     retryConnect(delay) {
         console.log(`retry connect after ${delay} seconds`);
@@ -158,6 +169,7 @@ class ScriptSourcesMgr {
     close() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._client) {
+                this._connecting = false;
                 let client = this._client;
                 this._client = undefined;
                 this._trace('closing client...');

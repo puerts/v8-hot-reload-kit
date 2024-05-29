@@ -14,6 +14,7 @@ export class ScriptSourcesMgr {
     private _connecting:boolean = false;
     private _host:string;
     private _port:number;
+    private _updateTask:{pathname: string, content: string};
 
     constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string }>) {
         let { trace, localRoot, remoteRoot } = params ?? {};
@@ -70,6 +71,12 @@ export class ScriptSourcesMgr {
 
             this._client = client;
             console.log(`${host}:${port} connented.`);
+            if (this._updateTask) {
+                try {
+                    await this.reload(this._updateTask.pathname, this._updateTask.content);
+                } catch {};
+                this.close();
+            }
         } catch (err) {
             console.error(`CONNECT_FAIL: ${err}`);
             this._client = undefined;
@@ -77,6 +84,10 @@ export class ScriptSourcesMgr {
             await this.close();
         }
         this._connecting = false;
+    }
+
+    public setUpdateTask(pathname: string, content: string):void {
+        this._updateTask = {pathname, content};
     }
 
     private retryConnect(delay:number) {
@@ -163,6 +174,7 @@ export class ScriptSourcesMgr {
 
     public async close() {
         if (this._client) {
+            this._connecting = false;
             let client = this._client;
             this._client = undefined;
             this._trace('closing client...');
