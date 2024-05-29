@@ -9,12 +9,14 @@ export class ScriptSourcesMgr {
     private _scriptsDB = new Map<string, string>();
     private _trace: (msg: string) => void;
     private _puerts: boolean;
-    private _watchRoot:string;
+    private _localRoot:string;
+    private _remoteRoot:string;
 
-    constructor(params?: Partial<{ trace: boolean, watchRoot:string }>) {
-        let { trace, watchRoot: remoteRoot } = params ?? {};
+    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string }>) {
+        let { trace, localRoot, remoteRoot } = params ?? {};
         this._trace = trace ? console.log : () => {};
-        this._watchRoot = remoteRoot || "";
+        this._localRoot = localRoot || "";
+        this._remoteRoot = remoteRoot;
     }
 
     public async connect(host: string, port?: number) {
@@ -88,7 +90,7 @@ export class ScriptSourcesMgr {
                 console.error(`RELOAD_SOURCE_FAIL: ${err}, script(${scriptId}):${pathNormalized}`);
             }
         } else {
-            console.warn(`can not find scriptId for ${pathNormalized}, retry later!`);
+            this._trace(`can not find scriptId for ${pathNormalized}.`);
         }
     }
 
@@ -107,13 +109,18 @@ export class ScriptSourcesMgr {
                 
                 pathname = parseUrl.pathname;
                 if (["http:", "https:"].includes(parseUrl.protocol)) {
-                    pathname = path.join(this._watchRoot, pathname);
+                    pathname = path.join(this._localRoot, pathname);
                 } else if (process.platform == "win32" && pathname.startsWith("/")) {
                     pathname = pathname.substring(1);
                 }
                 
             } catch {
                 return;
+            }
+        }
+        if (this._remoteRoot && this._remoteRoot != this._localRoot) {
+            if(pathname.startsWith(this._remoteRoot)) {
+                pathname = pathname.replace(this._remoteRoot, this._localRoot);
             }
         }
         //console.log(`url:${url}, path:${path}`);

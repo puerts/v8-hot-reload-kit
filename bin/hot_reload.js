@@ -20,10 +20,11 @@ program
     .description('watch a puerts addon project')
     .option('-h, --host <host>', 'host to connect', '127.0.0.1')
     .option('-p, --port <port>', 'port to connect', '9222')
+    .option('-r, --remoteRoot <path>', '(remote) runtime environment root directory.')
     .option('-v, --verbose', 'display trace')
     .action(function (dir, opts) {
     return __awaiter(this, void 0, void 0, function* () {
-        const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({ trace: opts.verbose, watchRoot: path.resolve(dir) });
+        const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({ trace: opts.verbose, localRoot: path.resolve(dir), remoteRoot: opts.remoteRoot });
         yield scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
         const watcher = chokidar.watch([`${dir}/**/*.js`, `${dir}/**/*.mjs`]);
         watcher.on('change', (filePath) => {

@@ -26,9 +26,10 @@ class ScriptSourcesMgr {
             this._trace('>>> disconnected!');
             this._client = undefined;
         };
-        let { trace, watchRoot: remoteRoot } = params !== null && params !== void 0 ? params : {};
+        let { trace, localRoot, remoteRoot } = params !== null && params !== void 0 ? params : {};
         this._trace = trace ? console.log : () => { };
-        this._watchRoot = remoteRoot || "";
+        this._localRoot = localRoot || "";
+        this._remoteRoot = remoteRoot;
     }
     connect(host, port) {
         var _a, _b;
@@ -101,7 +102,7 @@ class ScriptSourcesMgr {
                 }
             }
             else {
-                console.warn(`can not find scriptId for ${pathNormalized}, retry later!`);
+                this._trace(`can not find scriptId for ${pathNormalized}.`);
             }
         });
     }
@@ -118,7 +119,7 @@ class ScriptSourcesMgr {
                 }
                 pathname = parseUrl.pathname;
                 if (["http:", "https:"].includes(parseUrl.protocol)) {
-                    pathname = path.join(this._watchRoot, pathname);
+                    pathname = path.join(this._localRoot, pathname);
                 }
                 else if (process.platform == "win32" && pathname.startsWith("/")) {
                     pathname = pathname.substring(1);
@@ -126,6 +127,11 @@ class ScriptSourcesMgr {
             }
             catch (_a) {
                 return;
+            }
+        }
+        if (this._remoteRoot && this._remoteRoot != this._localRoot) {
+            if (pathname.startsWith(this._remoteRoot)) {
+                pathname = pathname.replace(this._remoteRoot, this._localRoot);
             }
         }
         //console.log(`url:${url}, path:${path}`);
