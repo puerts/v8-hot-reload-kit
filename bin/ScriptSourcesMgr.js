@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptSourcesMgr = void 0;
 const CDP = require("chrome-remote-interface");
 const path = require("path");
+const fs = require("fs");
+const chokidar = require("chokidar");
 const MAX_SCRIPTS_CACHE_SIZE = 10000000;
 class ScriptSourcesMgr {
     constructor(params) {
@@ -25,6 +27,8 @@ class ScriptSourcesMgr {
         };
         this._onDisconnect = () => {
             this._trace('>>> disconnected!');
+            this._watcher.close();
+            this._watcher = undefined;
             this._client = undefined;
             this.retryConnect(1);
         };
@@ -47,6 +51,7 @@ class ScriptSourcesMgr {
             console.log(`connecting ${host}:${port} ...`);
             this._connecting = true;
             try {
+                this._watcher = new chokidar.FSWatcher();
                 const local = true;
                 const cfg = { host, port, local };
                 let version = yield CDP.Version(cfg);
@@ -85,10 +90,17 @@ class ScriptSourcesMgr {
                     ;
                     this.close();
                 }
+                else {
+                    this._watcher.on('change', (filePath) => {
+                        let fullFilePath = `${path.resolve(filePath)}`;
+                        this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                    });
+                }
             }
             catch (err) {
                 console.error(`CONNECT_FAIL: ${err}`);
                 this._client = undefined;
+                this._watcher = undefined;
                 this.retryConnect(2);
                 yield this.close();
             }
@@ -137,6 +149,7 @@ class ScriptSourcesMgr {
     }
     setScriptInfo(scriptId, url) {
         let pathname = url;
+        let isHttp = false;
         if (!this._puerts) {
             try {
                 const parseUrl = new URL(url);
@@ -145,31 +158,45 @@ class ScriptSourcesMgr {
                 }
                 pathname = parseUrl.pathname;
                 if (["http:", "https:"].includes(parseUrl.protocol)) {
-                    pathname = path.join(this._localRoot, pathname);
+                    isHttp = true;
                 }
                 else if (process.platform == "win32" && pathname.startsWith("/")) {
                     pathname = pathname.substring(1);
                 }
             }
             catch (_a) {
+                console.warn(``);
                 return;
             }
         }
+        let concatLocalRoot = false;
         if (this._remoteRoot && this._remoteRoot != this._localRoot) {
             if (pathname.startsWith(this._remoteRoot)) {
                 pathname = pathname.replace(this._remoteRoot, this._localRoot);
+                concatLocalRoot = true;
             }
+        }
+        if (isHttp && !concatLocalRoot) {
+            pathname = path.join(this._localRoot, pathname);
         }
         //console.log(`url:${url}, path:${path}`);
         const pathNormalized = path.normalize(pathname);
-        this._trace(`${pathNormalized} loaded, id: ${scriptId}`);
         this._scriptsDB.set(scriptId, pathNormalized);
         this._scriptsDB.set(pathNormalized, scriptId);
+        if (!fs.existsSync(pathNormalized)) {
+            console.warn(`${pathNormalized} not exist! scriptId: ${scriptId}, url: ${url}`);
+        }
+        else {
+            this._watcher.add(pathNormalized);
+            console.log(`${pathNormalized} watched, scriptId: ${scriptId}, url: ${url}`);
+        }
     }
     close() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._client) {
                 this._connecting = false;
+                this._watcher.close();
+                this._client = undefined;
                 let client = this._client;
                 this._client = undefined;
                 this._trace('closing client...');

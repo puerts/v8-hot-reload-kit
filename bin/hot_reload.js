@@ -14,24 +14,16 @@ const fs = require("fs");
 const path = require("path");
 const program = require("commander");
 const ScriptSourcesMgr_1 = require("./ScriptSourcesMgr");
-const chokidar = require("chokidar");
 function addOptions(cmd) {
     return cmd.option('-h, --host <host>', 'host to connect', '127.0.0.1')
         .option('-p, --port <port>', 'port to connect', '9222')
         .option('-r, --remoteRoot <path>', '(remote) runtime environment root directory.')
         .option('-v, --verbose', 'display trace');
 }
-addOptions(program.command('watch <dir>').description('watch a js project root'))
-    .action(function (dir, opts) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({ trace: opts.verbose, localRoot: path.resolve(dir), remoteRoot: opts.remoteRoot });
-        yield scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
-        const watcher = chokidar.watch([`${dir}/**/*.js`, `${dir}/**/*.mjs`]);
-        watcher.on('change', (filePath) => {
-            let fullFilePath = `${path.resolve(filePath)}`;
-            scriptSourcesMgr.reload(fullFilePath, fs.readFileSync(filePath).toString());
-        });
-    });
+addOptions(program.command('watch <localRoot>').description('watch a js project root'))
+    .action(function (localRoot, opts) {
+    const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({ trace: opts.verbose, localRoot: path.resolve(localRoot), remoteRoot: opts.remoteRoot });
+    scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
 });
 addOptions(program.command('update <localRoot> <fileRelativePath>').description('update a file to remote'))
     .action(function (localRoot, fileRelativePath, opts) {

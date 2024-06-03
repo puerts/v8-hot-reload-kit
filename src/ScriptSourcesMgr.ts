@@ -1,6 +1,8 @@
 import * as CDP from "chrome-remote-interface";
 import {Protocol} from "devtools-protocol/types/protocol";
 import * as path from "path";
+import * as fs from "fs";
+import * as chokidar from 'chokidar';
 
 const MAX_SCRIPTS_CACHE_SIZE = 10000000;
 
@@ -15,6 +17,7 @@ export class ScriptSourcesMgr {
     private _host:string;
     private _port:number;
     private _updateTask:{pathname: string, content: string};
+    private _watcher: chokidar.FSWatcher;
 
     constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string }>) {
         let { trace, localRoot, remoteRoot } = params ?? {};
@@ -35,6 +38,7 @@ export class ScriptSourcesMgr {
         console.log(`connecting ${host}:${port} ...`);
         this._connecting = true;
         try {
+            this._watcher = new chokidar.FSWatcher();
             const local = true;
             const cfg = { host, port, local };
             let version = await CDP.Version(cfg);
@@ -76,10 +80,16 @@ export class ScriptSourcesMgr {
                     await this.reload(this._updateTask.pathname, this._updateTask.content);
                 } catch {};
                 this.close();
+            } else {
+                this._watcher.on('change', (filePath) => {
+                    let fullFilePath = `${path.resolve(filePath)}`;
+                    this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                });
             }
         } catch (err) {
             console.error(`CONNECT_FAIL: ${err}`);
             this._client = undefined;
+            this._watcher = undefined;
             this.retryConnect(2);
             await this.close();
         }
@@ -128,6 +138,7 @@ export class ScriptSourcesMgr {
 
     private setScriptInfo(scriptId: string, url: string) {
         let pathname = url;
+        let isHttp = false;
         if (!this._puerts) {
             try {
                 const parseUrl = new URL(url);
@@ -137,25 +148,35 @@ export class ScriptSourcesMgr {
                 
                 pathname = parseUrl.pathname;
                 if (["http:", "https:"].includes(parseUrl.protocol)) {
-                    pathname = path.join(this._localRoot, pathname);
+                    isHttp = true;
                 } else if (process.platform == "win32" && pathname.startsWith("/")) {
                     pathname = pathname.substring(1);
                 }
-                
             } catch {
+                console.warn(``)
                 return;
             }
         }
+        let concatLocalRoot = false;
         if (this._remoteRoot && this._remoteRoot != this._localRoot) {
             if(pathname.startsWith(this._remoteRoot)) {
                 pathname = pathname.replace(this._remoteRoot, this._localRoot);
+                concatLocalRoot = true;
             }
+        }
+        if (isHttp && !concatLocalRoot) {
+            pathname = path.join(this._localRoot, pathname);
         }
         //console.log(`url:${url}, path:${path}`);
         const pathNormalized = path.normalize(pathname);
-        this._trace(`${pathNormalized} loaded, id: ${scriptId}`);
         this._scriptsDB.set(scriptId, pathNormalized);
         this._scriptsDB.set(pathNormalized, scriptId);
+        if (!fs.existsSync(pathNormalized)) {
+            console.warn(`${pathNormalized} not exist! scriptId: ${scriptId}, url: ${url}`);
+        } else {
+            this._watcher.add(pathNormalized);
+            console.log(`${pathNormalized} watched, scriptId: ${scriptId}, url: ${url}`);
+        }
     }
 
     private _onScriptParsed = (params: Protocol.Debugger.ScriptParsedEvent) => {
@@ -168,6 +189,8 @@ export class ScriptSourcesMgr {
 
     private _onDisconnect = () => {
         this._trace('>>> disconnected!');
+        this._watcher.close();
+        this._watcher = undefined;
         this._client = undefined;
         this.retryConnect(1);
     }
@@ -175,6 +198,8 @@ export class ScriptSourcesMgr {
     public async close() {
         if (this._client) {
             this._connecting = false;
+            this._watcher.close();
+            this._client = undefined;
             let client = this._client;
             this._client = undefined;
             this._trace('closing client...');

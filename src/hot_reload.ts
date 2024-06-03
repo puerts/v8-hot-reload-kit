@@ -4,7 +4,6 @@ import * as fs from "fs";
 import * as path from "path";
 import * as program from "commander";
 import { ScriptSourcesMgr } from "./ScriptSourcesMgr";
-import * as chokidar from 'chokidar';
 
 function addOptions(cmd: program.Command): program.Command {
     return cmd.option('-h, --host <host>', 'host to connect', '127.0.0.1')
@@ -13,16 +12,10 @@ function addOptions(cmd: program.Command): program.Command {
     .option('-v, --verbose', 'display trace');
 }
 
-addOptions(program.command('watch <dir>').description('watch a js project root'))
-    .action(async function (dir, opts) {
-        const scriptSourcesMgr = new ScriptSourcesMgr({trace: opts.verbose, localRoot: path.resolve(dir), remoteRoot: opts.remoteRoot});
-        await scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
-        const watcher = chokidar.watch([`${dir}/**/*.js`, `${dir}/**/*.mjs`]);
-
-        watcher.on('change', (filePath) => {
-            let fullFilePath = `${path.resolve(filePath)}`;
-            scriptSourcesMgr.reload(fullFilePath, fs.readFileSync(filePath).toString());
-        });
+addOptions(program.command('watch <localRoot>').description('watch a js project root'))
+    .action(function (localRoot, opts) {
+        const scriptSourcesMgr = new ScriptSourcesMgr({trace: opts.verbose, localRoot: path.resolve(localRoot), remoteRoot: opts.remoteRoot});
+        scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
     });
 
 addOptions(program.command('update <localRoot> <fileRelativePath>').description('update a file to remote'))
