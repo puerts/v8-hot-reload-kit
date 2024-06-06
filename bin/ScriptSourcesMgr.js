@@ -93,7 +93,9 @@ class ScriptSourcesMgr {
                 else {
                     this._watcher.on('change', (filePath) => {
                         let fullFilePath = `${path.resolve(filePath)}`;
-                        this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                        if (fs.existsSync(fullFilePath)) {
+                            this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                        }
                     });
                 }
             }
