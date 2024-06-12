@@ -61,6 +61,7 @@ export class ScriptSourcesMgr {
             await Runtime.enable();
             
             await Debugger.enable({ "maxScriptsCacheSize": MAX_SCRIPTS_CACHE_SIZE });
+            await Debugger.setSkipAllPauses({skip:true});
 
             //await Debugger.setPauseOnExceptions({state:"none"});
             //await Debugger.setAsyncCallStackDepth({maxDepth:32})
