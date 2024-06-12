@@ -71,6 +71,7 @@ class ScriptSourcesMgr {
                 Debugger.on("scriptFailedToParse", this._onScriptFailedToParse);
                 yield Runtime.enable();
                 yield Debugger.enable({ "maxScriptsCacheSize": MAX_SCRIPTS_CACHE_SIZE });
+                yield Debugger.setSkipAllPauses({ skip: true });
                 //await Debugger.setPauseOnExceptions({state:"none"});
                 //await Debugger.setAsyncCallStackDepth({maxDepth:32})
                 if (isNode) {
