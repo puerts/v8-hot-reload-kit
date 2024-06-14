@@ -3,6 +3,7 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
   
 jobs:
   publish:
@@ -17,7 +18,14 @@ jobs:
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
+      - name: Check if version has been updated
+        id: check
+        uses: EndBug/version-check@v2
+        with:
+          file-url: '::before'
+          static-checking: localIsNew
       - run: npm ci
       - run: npm publish --provenance --access public
+        if: steps.check.outputs.changed == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
