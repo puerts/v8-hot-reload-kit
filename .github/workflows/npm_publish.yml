@@ -23,6 +23,7 @@ jobs:
         uses: EndBug/version-check@v2
         with:
           file-url: '::before'
+          static-checking: localIsNew
       - run: npm ci
       - run: npm publish --provenance --access public
         if: steps.check.outputs.changed == 'true'
