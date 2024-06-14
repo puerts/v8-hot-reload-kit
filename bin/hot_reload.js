@@ -15,7 +15,7 @@ const path = require("path");
 const program = require("commander");
 const ScriptSourcesMgr_1 = require("./ScriptSourcesMgr");
 function addOptions(cmd) {
-    return cmd.option('-h, --host <host>', 'host to connect', '127.0.0.1')
+    return cmd.option('-h, --host <host>', 'host to connect', 'localhost')
         .option('-p, --port <port>', 'port to connect', '9222')
         .option('-r, --remoteRoot <path>', '(remote) runtime environment root directory.')
         .option('-v, --verbose', 'display trace');
