@@ -18,14 +18,14 @@ export class ScriptSourcesMgr {
     private _port:number;
     private _updateTask:{pathname: string, content: string};
     private _watcher: chokidar.FSWatcher;
-    private _forceCJS: boolean = false;
+    private _forceSrcType: 'cjs'|'mjs'|undefined;
 
-    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceCJS: boolean}>) {
-        let { trace, localRoot, remoteRoot, forceCJS } = params ?? {};
+    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceSrcType: 'cjs'|'mjs'|undefined}>) {
+        let { trace, localRoot, remoteRoot, forceSrcType } = params ?? {};
         this._trace = trace ? console.log : () => {};
         this._localRoot = localRoot || "";
         this._remoteRoot = remoteRoot;
-        this._forceCJS = forceCJS;
+        this._forceSrcType = forceSrcType;
     }
 
     public async connect(host: string, port?: number) {
@@ -119,7 +119,7 @@ export class ScriptSourcesMgr {
             const scriptId = this._scriptsDB.get(pathNormalized);
             this._trace(`reloading ${pathNormalized}, scriptId: ${scriptId}`);
             try {
-                const updateSource = (this._puerts && (this.isCJS(pathNormalized) || this._forceCJS))
+                const updateSource = (this._puerts && (this.isCJS(pathNormalized)))
                     ? `(function (exports, require, module, __filename, __dirname) { ${source}\n});` : source;
                 const {scriptSource} = await this._client.Debugger.getScriptSource({scriptId});
                 if (scriptSource == updateSource) {
@@ -139,6 +139,9 @@ export class ScriptSourcesMgr {
     }
 
     private isCJS(url: string) {
+        if (this._forceSrcType) {
+            return this._forceSrcType === 'cjs';
+        }
         return url.endsWith(".js") && !url.startsWith("http:");
     }
 
