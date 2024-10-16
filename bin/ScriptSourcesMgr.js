@@ -19,6 +19,7 @@ class ScriptSourcesMgr {
     constructor(params) {
         this._scriptsDB = new Map();
         this._connecting = false;
+        this._forceCJS = false;
         this._onScriptParsed = (params) => {
             this.setScriptInfo(params.scriptId, params.url);
         };
@@ -32,10 +33,11 @@ class ScriptSourcesMgr {
             this._client = undefined;
             this.retryConnect(1);
         };
-        let { trace, localRoot, remoteRoot } = params !== null && params !== void 0 ? params : {};
+        let { trace, localRoot, remoteRoot, forceCJS } = params !== null && params !== void 0 ? params : {};
         this._trace = trace ? console.log : () => { };
         this._localRoot = localRoot || "";
         this._remoteRoot = remoteRoot;
+        this._forceCJS = forceCJS;
     }
     connect(host, port) {
         var _a, _b;
@@ -126,7 +128,8 @@ class ScriptSourcesMgr {
                 const scriptId = this._scriptsDB.get(pathNormalized);
                 this._trace(`reloading ${pathNormalized}, scriptId: ${scriptId}`);
                 try {
-                    const updateSource = (this._puerts && this.isCJS(pathNormalized)) ? `(function (exports, require, module, __filename, __dirname) { ${source}\n});` : source;
+                    const updateSource = (this._puerts && (this.isCJS(pathNormalized) || this._forceCJS))
+                        ? `(function (exports, require, module, __filename, __dirname) { ${source}\n});` : source;
                     const { scriptSource } = yield this._client.Debugger.getScriptSource({ scriptId });
                     if (scriptSource == updateSource) {
                         this._trace(`source not changed, skip ${pathNormalized}`);
