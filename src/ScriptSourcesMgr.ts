@@ -18,12 +18,14 @@ export class ScriptSourcesMgr {
     private _port:number;
     private _updateTask:{pathname: string, content: string};
     private _watcher: chokidar.FSWatcher;
+    private _forceCJS: boolean = false;
 
-    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string }>) {
-        let { trace, localRoot, remoteRoot } = params ?? {};
+    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceCJS: boolean}>) {
+        let { trace, localRoot, remoteRoot, forceCJS } = params ?? {};
         this._trace = trace ? console.log : () => {};
         this._localRoot = localRoot || "";
         this._remoteRoot = remoteRoot;
+        this._forceCJS = forceCJS;
     }
 
     public async connect(host: string, port?: number) {
@@ -117,7 +119,8 @@ export class ScriptSourcesMgr {
             const scriptId = this._scriptsDB.get(pathNormalized);
             this._trace(`reloading ${pathNormalized}, scriptId: ${scriptId}`);
             try {
-                const updateSource = (this._puerts && this.isCJS(pathNormalized)) ? `(function (exports, require, module, __filename, __dirname) { ${source}\n});` : source;
+                const updateSource = (this._puerts && (this.isCJS(pathNormalized) || this._forceCJS))
+                    ? `(function (exports, require, module, __filename, __dirname) { ${source}\n});` : source;
                 const {scriptSource} = await this._client.Debugger.getScriptSource({scriptId});
                 if (scriptSource == updateSource) {
                     this._trace(`source not changed, skip ${pathNormalized}`);
