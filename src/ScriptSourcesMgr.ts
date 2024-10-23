@@ -19,13 +19,15 @@ export class ScriptSourcesMgr {
     private _updateTask:{pathname: string, content: string};
     private _watcher: chokidar.FSWatcher;
     private _forceSrcType: 'cjs'|'mjs'|undefined;
+    private _ignorePattern: RegExp;
 
-    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceSrcType: 'cjs'|'mjs'|undefined}>) {
-        let { trace, localRoot, remoteRoot, forceSrcType } = params ?? {};
+    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string}>) {
+        let { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params ?? {};
         this._trace = trace ? console.log : () => {};
         this._localRoot = localRoot || "";
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
+        this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
     }
 
     public async connect(host: string, port?: number) {
@@ -86,7 +88,7 @@ export class ScriptSourcesMgr {
             } else {
                 this._watcher.on('change', (filePath) => {
                     let fullFilePath = `${path.resolve(filePath)}`;
-                    if (fs.existsSync(fullFilePath)) {
+                    if (fs.existsSync(fullFilePath) && !this._ignorePattern?.test(filePath)) {
                         this.reload(fullFilePath, fs.readFileSync(filePath).toString());
                     }
                 });

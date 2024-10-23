@@ -23,9 +23,14 @@ function addOptions(cmd) {
 }
 addOptions(program.command('watch <localRoot>').description('watch a js project root'))
     .action(function (localRoot, opts) {
-    const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({ trace: opts.verbose, localRoot: path.resolve(localRoot), remoteRoot: opts.remoteRoot, forceSrcType: opts.forceSrcType });
+    const scriptSourcesMgr = new ScriptSourcesMgr_1.ScriptSourcesMgr({
+        trace: opts.verbose, localRoot: path.resolve(localRoot),
+        remoteRoot: opts.remoteRoot, forceSrcType: opts.forceSrcType,
+        ignorePattern: opts.ignorePattern,
+    });
     scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
-});
+})
+    .option('--ignorePattern <regex>', 'ignore files that matches regex');
 addOptions(program.command('update <localRoot> <fileRelativePath>').description('update a file to remote'))
     .action(function (localRoot, fileRelativePath, opts) {
     return __awaiter(this, void 0, void 0, function* () {

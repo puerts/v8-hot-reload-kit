@@ -32,11 +32,12 @@ class ScriptSourcesMgr {
             this._client = undefined;
             this.retryConnect(1);
         };
-        let { trace, localRoot, remoteRoot, forceSrcType } = params !== null && params !== void 0 ? params : {};
+        let { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params !== null && params !== void 0 ? params : {};
         this._trace = trace ? console.log : () => { };
         this._localRoot = localRoot || "";
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
+        this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
     }
     connect(host, port) {
         var _a, _b;
@@ -94,8 +95,9 @@ class ScriptSourcesMgr {
                 }
                 else {
                     this._watcher.on('change', (filePath) => {
+                        var _a;
                         let fullFilePath = `${path.resolve(filePath)}`;
-                        if (fs.existsSync(fullFilePath)) {
+                        if (fs.existsSync(fullFilePath) && !((_a = this._ignorePattern) === null || _a === void 0 ? void 0 : _a.test(filePath))) {
                             this.reload(fullFilePath, fs.readFileSync(filePath).toString());
                         }
                     });
