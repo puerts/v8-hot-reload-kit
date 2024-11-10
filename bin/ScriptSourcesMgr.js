@@ -53,7 +53,7 @@ class ScriptSourcesMgr {
             console.log(`connecting ${host}:${port} ...`);
             this._connecting = true;
             try {
-                this._watcher = new chokidar.FSWatcher();
+                this._watcher = new chokidar.FSWatcher({ awaitWriteFinish: { stabilityThreshold: 200 } });
                 const local = true;
                 const cfg = { host, port, local };
                 let version = yield CDP.Version(cfg);
