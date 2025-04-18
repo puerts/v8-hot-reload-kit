@@ -11,8 +11,8 @@ export class ScriptSourcesMgr {
     private _scriptsDB = new Map<string, string>();
     private _trace: (msg: string) => void;
     private _puerts: boolean;
-    private _localRoot:string;
-    private _remoteRoot:string;
+    private _localRoot:string[];
+    private _remoteRoot:string[];
     private _connecting:boolean = false;
     private _host:string;
     private _port:number;
@@ -21,10 +21,10 @@ export class ScriptSourcesMgr {
     private _forceSrcType: 'cjs'|'mjs'|undefined;
     private _ignorePattern: RegExp;
 
-    constructor(params?: Partial<{ trace: boolean, localRoot:string, remoteRoot:string, forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string}>) {
-        let { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params ?? {};
+    constructor(params?: Partial<{ trace: boolean, localRoot:string[], remoteRoot:string[], forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string}>) {
+        const { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params ?? {};
         this._trace = trace ? console.log : () => {};
-        this._localRoot = localRoot || "";
+        this._localRoot = localRoot || [];
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
         this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
@@ -147,6 +147,20 @@ export class ScriptSourcesMgr {
         return url.endsWith(".js") && !url.startsWith("http:");
     }
 
+    private convertUrlToLocalPath(url: string): [boolean, string] {
+        let pathname = url;
+        let concatLocalRoot = false;
+        for (let i = 0; i < this._remoteRoot.length; i++) {
+            const remoteRoot = this._remoteRoot[i];
+            if (pathname.startsWith(remoteRoot)) {
+                pathname = pathname.replace(remoteRoot, this._localRoot[i]);
+                concatLocalRoot = true;
+                break;
+            }
+        }
+        return [concatLocalRoot, pathname];
+    }
+
     private setScriptInfo(scriptId: string, url: string) {
         let pathname = url;
         let isHttp = false;
@@ -168,17 +182,18 @@ export class ScriptSourcesMgr {
                 return;
             }
         }
-        let concatLocalRoot = false;
-        if (this._remoteRoot && this._remoteRoot != this._localRoot) {
-            if(pathname.startsWith(this._remoteRoot)) {
-                pathname = pathname.replace(this._remoteRoot, this._localRoot);
-                concatLocalRoot = true;
-            }
-        }
+        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname);
+        // if (this._remoteRoot && this._remoteRoot != this._localRoot) {
+        //     if(pathname.startsWith(this._remoteRoot)) {
+        //         pathname = pathname.replace(this._remoteRoot, this._localRoot);
+        //         concatLocalRoot = true;
+        //     }
+        // }
+        pathname = localPathname;
         if (isHttp && !concatLocalRoot) {
-            pathname = path.join(this._localRoot, pathname);
+            pathname = path.join(this._localRoot[0], pathname);
         }
-        //console.log(`url:${url}, path:${path}`);
+        // console.log(`url:${url}, path:${path}`);
         const pathNormalized = path.normalize(pathname);
         this._scriptsDB.set(scriptId, pathNormalized);
         this._scriptsDB.set(pathNormalized, scriptId);
