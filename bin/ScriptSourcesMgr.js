@@ -32,9 +32,9 @@ class ScriptSourcesMgr {
             this._client = undefined;
             this.retryConnect(1);
         };
-        let { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params !== null && params !== void 0 ? params : {};
+        const { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params !== null && params !== void 0 ? params : {};
         this._trace = trace ? console.log : () => { };
-        this._localRoot = localRoot || "";
+        this._localRoot = localRoot || [];
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
         this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
@@ -157,6 +157,19 @@ class ScriptSourcesMgr {
         }
         return url.endsWith(".js") && !url.startsWith("http:");
     }
+    convertUrlToLocalPath(url) {
+        let pathname = url;
+        let concatLocalRoot = false;
+        for (let i = 0; i < this._remoteRoot.length; i++) {
+            const remoteRoot = this._remoteRoot[i];
+            if (pathname.startsWith(remoteRoot)) {
+                pathname = pathname.replace(remoteRoot, this._localRoot[i]);
+                concatLocalRoot = true;
+                break;
+            }
+        }
+        return [concatLocalRoot, pathname];
+    }
     setScriptInfo(scriptId, url) {
         let pathname = url;
         let isHttp = false;
@@ -179,17 +192,18 @@ class ScriptSourcesMgr {
                 return;
             }
         }
-        let concatLocalRoot = false;
-        if (this._remoteRoot && this._remoteRoot != this._localRoot) {
-            if (pathname.startsWith(this._remoteRoot)) {
-                pathname = pathname.replace(this._remoteRoot, this._localRoot);
-                concatLocalRoot = true;
-            }
-        }
+        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname);
+        // if (this._remoteRoot && this._remoteRoot != this._localRoot) {
+        //     if(pathname.startsWith(this._remoteRoot)) {
+        //         pathname = pathname.replace(this._remoteRoot, this._localRoot);
+        //         concatLocalRoot = true;
+        //     }
+        // }
+        pathname = localPathname;
         if (isHttp && !concatLocalRoot) {
-            pathname = path.join(this._localRoot, pathname);
+            pathname = path.join(this._localRoot[0], pathname);
         }
-        //console.log(`url:${url}, path:${path}`);
+        // console.log(`url:${url}, path:${path}`);
         const pathNormalized = path.normalize(pathname);
         this._scriptsDB.set(scriptId, pathNormalized);
         this._scriptsDB.set(pathNormalized, scriptId);
