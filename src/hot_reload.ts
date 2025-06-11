@@ -10,13 +10,13 @@ function addOptions(cmd: program.Command): program.Command {
     .option('-p, --port <port>', 'port to connect', '9222')
     .option('-r, --remoteRoot <path>', '(remote) runtime environment root directory.')
     .option('-v, --verbose', 'display trace')
+    .option('-s, --subDir <folder>', 'The subdirectory to search.')
     .option('--forceSrcType <cjs/mjs>', 'force treat source as commonjs/esm, regardless of file extension');
 }
 
 function checkRootPath(localRoot: string, remoteRoot: string) {
     const localRootArray = localRoot.split('|');
     const remoteRootArray = remoteRoot.split('|');
-    // const localRootPathArray = ;
     const diff = localRootArray.length - remoteRootArray.length;
     if (diff > 0) {
         const lastElement = remoteRootArray[remoteRootArray.length - 1];
@@ -25,13 +25,19 @@ function checkRootPath(localRoot: string, remoteRoot: string) {
     return [localRootArray.map((v) => path.resolve(v)), remoteRootArray];
 }
 
+function checkPartFolder(partFolder: string):string[] {
+    return partFolder.split('|');
+}
+
 addOptions(program.command('watch <localRoot>').description('watch a js project root'))
     .action(function (localRoot, opts) {
         const [localRootArray, remoteRootArray] = checkRootPath(localRoot, opts.remoteRoot || "");
+        const partFolders = checkPartFolder(opts.subDir || "");
         const scriptSourcesMgr = new ScriptSourcesMgr({
             trace: opts.verbose, localRoot: localRootArray,
             remoteRoot: remoteRootArray, forceSrcType: opts.forceSrcType,
             ignorePattern: opts.ignorePattern,
+            partFolders: partFolders,
         });
         scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
     })
@@ -40,7 +46,8 @@ addOptions(program.command('watch <localRoot>').description('watch a js project 
 addOptions(program.command('update <localRoot> <fileRelativePath>').description('update a file to remote'))
     .action(async function (localRoot, fileRelativePath, opts) {
         const [localRootArray, remoteRootArray] = checkRootPath(localRoot, opts.remoteRoot || "");
-        const scriptSourcesMgr = new ScriptSourcesMgr({trace: opts.verbose, localRoot: localRootArray, remoteRoot: remoteRootArray, forceSrcType: opts.forceSrcType});
+        const partFolders = checkPartFolder(opts.subDir || "");
+        const scriptSourcesMgr = new ScriptSourcesMgr({trace: opts.verbose, localRoot: localRootArray, remoteRoot: remoteRootArray, forceSrcType: opts.forceSrcType,partFolders: partFolders,});
         const filePath = path.join(localRoot, fileRelativePath);
         scriptSourcesMgr.setUpdateTask(path.resolve(filePath), fs.readFileSync(filePath).toString());
         scriptSourcesMgr.connect(opts.host, parseInt(opts.port));
