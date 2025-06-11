@@ -20,14 +20,16 @@ export class ScriptSourcesMgr {
     private _watcher: chokidar.FSWatcher;
     private _forceSrcType: 'cjs'|'mjs'|undefined;
     private _ignorePattern: RegExp;
+    private _partFolders:string[];
 
-    constructor(params?: Partial<{ trace: boolean, localRoot:string[], remoteRoot:string[], forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string}>) {
+    constructor(params?: Partial<{ trace: boolean, localRoot:string[], remoteRoot:string[], forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string, partFolders: string[]}>) {
         const { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params ?? {};
         this._trace = trace ? console.log : () => {};
         this._localRoot = localRoot || [];
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
         this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
+        this._partFolders = params?.partFolders || [];
     }
 
     public async connect(host: string, port?: number) {
@@ -147,13 +149,25 @@ export class ScriptSourcesMgr {
         return url.endsWith(".js") && !url.startsWith("http:");
     }
 
-    private convertUrlToLocalPath(url: string): [boolean, string] {
+    private convertUrlToLocalPath(url: string, partFolders: string[] = []): [boolean, string] {
         let pathname = url;
         let concatLocalRoot = false;
         for (let i = 0; i < this._remoteRoot.length; i++) {
             const remoteRoot = this._remoteRoot[i];
+            const localRoot = this._localRoot[i];
             if (pathname.startsWith(remoteRoot)) {
-                pathname = pathname.replace(remoteRoot, this._localRoot[i]);
+                if (partFolders.length > 0) {
+                    for (let j = 0; j < partFolders.length; j++) {
+                        const partFolder = partFolders[j];
+                        const pathnameByPartFolder = pathname.replace(remoteRoot, path.join(localRoot, partFolder));
+                        const pathNormalized = path.normalize(pathnameByPartFolder);
+                        if (fs.existsSync(pathNormalized)) {
+                            // 文件存在 可以返回该文件
+                            return [true, pathnameByPartFolder];
+                        }
+                    }
+                }  
+                pathname = pathname.replace(remoteRoot, localRoot);
                 concatLocalRoot = true;
                 break;
             }
@@ -182,7 +196,7 @@ export class ScriptSourcesMgr {
                 return;
             }
         }
-        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname);
+        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname, this._partFolders);
         // if (this._remoteRoot && this._remoteRoot != this._localRoot) {
         //     if(pathname.startsWith(this._remoteRoot)) {
         //         pathname = pathname.replace(this._remoteRoot, this._localRoot);
