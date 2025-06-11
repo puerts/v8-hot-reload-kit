@@ -38,10 +38,11 @@ class ScriptSourcesMgr {
         this._remoteRoot = remoteRoot;
         this._forceSrcType = forceSrcType;
         this._ignorePattern = ignorePattern ? new RegExp(ignorePattern) : undefined;
+        this._partFolders = (params === null || params === void 0 ? void 0 : params.partFolders) || [];
     }
     connect(host, port) {
-        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             this._host = host;
             this._port = port;
             if (this._client) {
@@ -157,13 +158,25 @@ class ScriptSourcesMgr {
         }
         return url.endsWith(".js") && !url.startsWith("http:");
     }
-    convertUrlToLocalPath(url) {
+    convertUrlToLocalPath(url, partFolders = []) {
         let pathname = url;
         let concatLocalRoot = false;
         for (let i = 0; i < this._remoteRoot.length; i++) {
             const remoteRoot = this._remoteRoot[i];
+            const localRoot = this._localRoot[i];
             if (pathname.startsWith(remoteRoot)) {
-                pathname = pathname.replace(remoteRoot, this._localRoot[i]);
+                if (partFolders.length > 0) {
+                    for (let j = 0; j < partFolders.length; j++) {
+                        const partFolder = partFolders[j];
+                        const pathnameByPartFolder = pathname.replace(remoteRoot, path.join(localRoot, partFolder));
+                        const pathNormalized = path.normalize(pathnameByPartFolder);
+                        if (fs.existsSync(pathNormalized)) {
+                            // 文件存在 可以返回该文件
+                            return [true, pathnameByPartFolder];
+                        }
+                    }
+                }
+                pathname = pathname.replace(remoteRoot, localRoot);
                 concatLocalRoot = true;
                 break;
             }
@@ -192,7 +205,7 @@ class ScriptSourcesMgr {
                 return;
             }
         }
-        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname);
+        const [concatLocalRoot, localPathname] = this.convertUrlToLocalPath(pathname, this._partFolders);
         // if (this._remoteRoot && this._remoteRoot != this._localRoot) {
         //     if(pathname.startsWith(this._remoteRoot)) {
         //         pathname = pathname.replace(this._remoteRoot, this._localRoot);
