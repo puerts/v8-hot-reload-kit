@@ -10,6 +10,7 @@
     "module": "commonjs",
     "noImplicitAny": true,
     "sourceMap": true,
+    "esModuleInterop": true,
     "outDir": "./bin"
   }
 }

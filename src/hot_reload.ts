@@ -2,10 +2,12 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as program from "commander";
+import { Command } from "commander";
 import { ScriptSourcesMgr } from "./ScriptSourcesMgr";
 
-function addOptions(cmd: program.Command): program.Command {
+const program = new Command();
+
+function addOptions(cmd: Command): Command {
     return cmd.option('-h, --host <host>', 'host to connect', 'localhost')
     .option('-p, --port <port>', 'port to connect', '9222')
     .option('-r, --remoteRoot <path>', '(remote) runtime environment root directory.')

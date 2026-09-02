@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -8,17 +41,26 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScriptSourcesMgr = void 0;
-const CDP = require("chrome-remote-interface");
-const path = require("path");
-const fs = require("fs");
-const chokidar = require("chokidar");
+const chrome_remote_interface_1 = __importDefault(require("chrome-remote-interface"));
+const path = __importStar(require("path"));
+const fs = __importStar(require("fs"));
+const crypto_1 = require("crypto");
+const chokidar_1 = __importDefault(require("chokidar"));
 const MAX_SCRIPTS_CACHE_SIZE = 10000000;
+const RELOAD_INTERVAL = 100;
 class ScriptSourcesMgr {
     constructor(params) {
         this._scriptsDB = new Map();
         this._connecting = false;
+        this._pendingReloads = new Map();
+        this._fileMd5 = new Map();
+        this._processingReloads = false;
+        this._nextReloadTime = 0;
         this._onScriptParsed = (params) => {
             this.setScriptInfo(params.scriptId, params.url);
         };
@@ -54,14 +96,14 @@ class ScriptSourcesMgr {
             console.log(`connecting ${host}:${port} ...`);
             this._connecting = true;
             try {
-                this._watcher = new chokidar.FSWatcher({ awaitWriteFinish: { stabilityThreshold: 200 } });
+                this._watcher = new chokidar_1.default.FSWatcher({ awaitWriteFinish: { stabilityThreshold: 200 } });
                 const local = true;
                 const cfg = { host, port, local };
-                let version = yield CDP.Version(cfg);
+                let version = yield chrome_remote_interface_1.default.Version(cfg);
                 const isNode = (_a = version.Browser) === null || _a === void 0 ? void 0 : _a.includes("node.js");
                 this._puerts = (_b = version.Browser) === null || _b === void 0 ? void 0 : _b.includes("Puerts");
                 this._trace(`is node: ${isNode}, is puerts: ${this._puerts}`);
-                let client = yield CDP(cfg);
+                let client = yield (0, chrome_remote_interface_1.default)(cfg);
                 //let client = await CDP({ target: "ws://127.0.0.1:8080/bc2a9035-bfa9-46f7-8ef2-8f304483eeae"});
                 if (isNode) {
                     // for node --inspect-brk
@@ -88,7 +130,7 @@ class ScriptSourcesMgr {
                 console.log(`${host}:${port} connented.`);
                 if (this._updateTask) {
                     try {
-                        yield this.reload(this._updateTask.pathname, this._updateTask.content);
+                        this.scheduleReload(this._updateTask.pathname, this._updateTask.content);
                     }
                     catch (_c) { }
                     ;
@@ -97,9 +139,9 @@ class ScriptSourcesMgr {
                 else {
                     this._watcher.on('change', (filePath) => {
                         var _a;
-                        let fullFilePath = `${path.resolve(filePath)}`;
+                        const fullFilePath = path.resolve(filePath);
                         if (fs.existsSync(fullFilePath) && !((_a = this._ignorePattern) === null || _a === void 0 ? void 0 : _a.test(filePath))) {
-                            this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                            this.scheduleReload(fullFilePath, fs.readFileSync(fullFilePath).toString());
                         }
                     });
                 }
@@ -120,6 +162,41 @@ class ScriptSourcesMgr {
     retryConnect(delay) {
         console.log(`retry connect after ${delay} seconds`);
         setTimeout(() => this.connect(this._host, this._port), delay * 1000);
+    }
+    scheduleReload(pathname, source) {
+        const pathNormalized = path.normalize(pathname);
+        const md5 = (0, crypto_1.createHash)('md5').update(source).digest('hex');
+        if (this._fileMd5.get(pathNormalized) === md5) {
+            this._trace(`content not changed, skip ${pathNormalized}`);
+            return;
+        }
+        this._fileMd5.set(pathNormalized, md5);
+        this._pendingReloads.delete(pathNormalized);
+        this._pendingReloads.set(pathNormalized, source);
+        void this.processReloadQueue();
+    }
+    processReloadQueue() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._processingReloads) {
+                return;
+            }
+            this._processingReloads = true;
+            try {
+                while (this._pendingReloads.size > 0) {
+                    const [pathname, source] = this._pendingReloads.entries().next().value;
+                    this._pendingReloads.delete(pathname);
+                    const delay = this._nextReloadTime - Date.now();
+                    if (delay > 0) {
+                        yield new Promise((resolve) => setTimeout(resolve, delay));
+                    }
+                    this._nextReloadTime = Date.now() + RELOAD_INTERVAL;
+                    yield this.reload(pathname, source);
+                }
+            }
+            finally {
+                this._processingReloads = false;
+            }
+        });
     }
     reload(pathname, source) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -223,7 +300,9 @@ class ScriptSourcesMgr {
         if (!fs.existsSync(pathNormalized)) {
             console.warn(`${pathNormalized} not exist! scriptId: ${scriptId}, url: ${url}`);
         }
-        else {
+        else if (fs.statSync(pathNormalized).isFile()) {
+            const source = fs.readFileSync(pathNormalized).toString();
+            this._fileMd5.set(pathNormalized, (0, crypto_1.createHash)('md5').update(source).digest('hex'));
             this._watcher.add(pathNormalized);
             console.log(`${pathNormalized} watched, scriptId: ${scriptId}, url: ${url}`);
         }

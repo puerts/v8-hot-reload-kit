@@ -1,10 +1,12 @@
-import * as CDP from "chrome-remote-interface";
+import CDP from "chrome-remote-interface";
 import {Protocol} from "devtools-protocol/types/protocol";
 import * as path from "path";
 import * as fs from "fs";
-import * as chokidar from 'chokidar';
+import { createHash } from "crypto";
+import chokidar, { FSWatcher } from 'chokidar';
 
 const MAX_SCRIPTS_CACHE_SIZE = 10000000;
+const RELOAD_INTERVAL = 100;
 
 export class ScriptSourcesMgr {
     private _client: CDP.Client;
@@ -17,10 +19,14 @@ export class ScriptSourcesMgr {
     private _host:string;
     private _port:number;
     private _updateTask:{pathname: string, content: string};
-    private _watcher: chokidar.FSWatcher;
+    private _watcher: FSWatcher;
     private _forceSrcType: 'cjs'|'mjs'|undefined;
     private _ignorePattern: RegExp;
     private _partFolders:string[];
+    private _pendingReloads = new Map<string, string>();
+    private _fileMd5 = new Map<string, string>();
+    private _processingReloads = false;
+    private _nextReloadTime = 0;
 
     constructor(params?: Partial<{ trace: boolean, localRoot:string[], remoteRoot:string[], forceSrcType: 'cjs'|'mjs'|undefined, ignorePattern: string, partFolders: string[]}>) {
         const { trace, localRoot, remoteRoot, forceSrcType, ignorePattern } = params ?? {};
@@ -84,14 +90,14 @@ export class ScriptSourcesMgr {
             console.log(`${host}:${port} connented.`);
             if (this._updateTask) {
                 try {
-                    await this.reload(this._updateTask.pathname, this._updateTask.content);
+                    this.scheduleReload(this._updateTask.pathname, this._updateTask.content);
                 } catch {};
                 this.close();
             } else {
                 this._watcher.on('change', (filePath) => {
-                    let fullFilePath = `${path.resolve(filePath)}`;
+                    const fullFilePath = path.resolve(filePath);
                     if (fs.existsSync(fullFilePath) && !this._ignorePattern?.test(filePath)) {
-                        this.reload(fullFilePath, fs.readFileSync(filePath).toString());
+                        this.scheduleReload(fullFilePath, fs.readFileSync(fullFilePath).toString());
                     }
                 });
             }
@@ -112,6 +118,43 @@ export class ScriptSourcesMgr {
     private retryConnect(delay:number) {
         console.log(`retry connect after ${delay} seconds`);
         setTimeout(()=>this.connect(this._host, this._port), delay * 1000);
+    }
+
+    private scheduleReload(pathname: string, source: string): void {
+        const pathNormalized = path.normalize(pathname);
+        const md5 = createHash('md5').update(source).digest('hex');
+        if (this._fileMd5.get(pathNormalized) === md5) {
+            this._trace(`content not changed, skip ${pathNormalized}`);
+            return;
+        }
+
+        this._fileMd5.set(pathNormalized, md5);
+        this._pendingReloads.delete(pathNormalized);
+        this._pendingReloads.set(pathNormalized, source);
+        void this.processReloadQueue();
+    }
+
+    private async processReloadQueue(): Promise<void> {
+        if (this._processingReloads) {
+            return;
+        }
+
+        this._processingReloads = true;
+        try {
+            while (this._pendingReloads.size > 0) {
+                const [pathname, source] = this._pendingReloads.entries().next().value;
+                this._pendingReloads.delete(pathname);
+
+                const delay = this._nextReloadTime - Date.now();
+                if (delay > 0) {
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
+                this._nextReloadTime = Date.now() + RELOAD_INTERVAL;
+                await this.reload(pathname, source);
+            }
+        } finally {
+            this._processingReloads = false;
+        }
     }
 
     public async reload(pathname: string, source: string): Promise<void> {
@@ -213,7 +256,9 @@ export class ScriptSourcesMgr {
         this._scriptsDB.set(pathNormalized, scriptId);
         if (!fs.existsSync(pathNormalized)) {
             console.warn(`${pathNormalized} not exist! scriptId: ${scriptId}, url: ${url}`);
-        } else {
+        } else if (fs.statSync(pathNormalized).isFile()) {
+            const source = fs.readFileSync(pathNormalized).toString();
+            this._fileMd5.set(pathNormalized, createHash('md5').update(source).digest('hex'));
             this._watcher.add(pathNormalized);
             console.log(`${pathNormalized} watched, scriptId: ${scriptId}, url: ${url}`);
         }
