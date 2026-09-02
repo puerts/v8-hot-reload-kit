@@ -13,10 +13,9 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - name: Check if version has been updated
         id: check
@@ -27,5 +26,3 @@ jobs:
       - run: npm ci
       - run: npm publish --provenance --access public
         if: steps.check.outputs.changed == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
