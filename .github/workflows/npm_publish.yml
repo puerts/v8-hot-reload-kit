@@ -13,16 +13,19 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '24' # 自动支持 Trusted Publishing 的 Node 版本
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false # 发布构建时建议禁用缓存
+
       - name: Check if version has been updated
         id: check
         uses: EndBug/version-check@v2
         with:
           file-url: '::before'
           static-checking: localIsNew
+
       - name: Install dependencies & Build
         run: |
           npm ci
